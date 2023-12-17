@@ -1,0 +1,24 @@
+#!/usr/bin/python3
+import sys
+import subprocess
+import requests
+
+url = 'http://ntfy.sh/crysis_or_panic'
+
+def message_factory(arguments:list[str], return_code:int):
+    msg = f"abnormal exit code {return_code} for program: {' '.join(arguments)}" 
+    return msg
+
+arguments = sys.argv[1:]
+print("executing:", arguments)
+result = subprocess.run(arguments)
+return_code = result.returncode 
+if return_code != 0:
+    msg = message_factory(arguments, return_code)
+    for _ in range(3): 
+        try:
+            requests.post(url = url, data = msg)
+            print('error msg sent:', msg)
+            break
+        except:
+            pass
