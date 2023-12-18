@@ -1,0 +1,1 @@
+pylint --enable=unspecified-exception main.py # linting could be good for codestyle
