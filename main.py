@@ -126,7 +126,13 @@ def read_stream_loop(
             recover_from_exception()
 
 
+def print_settings(url: str, alarm_filepath: str):
+    print(f"listen on: {url}")
+    print(f"alarm filepath: {alarm_filepath}")
+
+
 def main_loop(url: str, alarm_filepath: str):
+    print_settings(url, alarm_filepath)
     vollist = get_volume_setting()
     sess = requests.Session()
     try:
