@@ -27,7 +27,7 @@ VIBRATION_MILISECONDS = 2000
 
 # interaction
 YES = "y"
-
+ACKNOWLEDGE_PROMPT = "acknowledged? (y/n) "
 
 def set_single_volume(key: str, value: int):
     cmd = [TERMUX_VOLUME, key, str(value)]
@@ -71,7 +71,7 @@ def msg_acknowledged_loop(msg: str, alarm_filepath: str):
         emit_alarm_signal(msg, alarm_filepath)
         try:
             ans = inputimeout(
-                prompt="acknowledged? (y/n) ", timeout=ACKNOWLEDGE_TIMEOUT
+                prompt=ACKNOWLEDGE_PROMPT, timeout=ACKNOWLEDGE_TIMEOUT
             )
             if ans == YES:
                 break
@@ -91,7 +91,6 @@ def handle_msg_with_vol_control(msg: str, vollist: list, alarm_filepath: str):
 
 
 def decode_line_and_get_msg(line: bytes):
-    # line = line.decode("utf-8")
     data = json.loads(line)
     msg = data.get(MESSAGE, None)
     return msg
