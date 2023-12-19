@@ -62,7 +62,7 @@ def set_volume(setting: dict[str, int]):
 
 def get_volume_setting():
     """
-    Getting a list of volume settings.
+    Getting a list of volume settings
 
     Returns:
         data(list):
