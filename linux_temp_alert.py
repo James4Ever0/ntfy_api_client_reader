@@ -4,11 +4,22 @@ import time
 import rich
 import tempfile
 
+# seems firefox is to be blamed. since this is not gpu intensive, it must be cpu then.
+# let's also get ram util.
+
 ENCODING = "utf-8"
 SCAN_INTERVAL = 10
 ALERT_CONFIRMATION_THRESHOLD = 3
 TEMP_THRESHOLD = 75  # celsius
-RESP_THRESHOLD = 100
+RESP_THRESHOLDS = {
+    "command_execution_speed": 100,
+    "file_io_speed": 1000,
+    "network_io_speed": 0.25,
+    "arithmetic_speed": 0.7,
+    "loop_speed": 450,
+}
+
+RESOURCE_UTIL_THRESHOLD = 95
 
 
 def jsonWalk(jsonObj, location=[]):
@@ -35,12 +46,36 @@ def jsonWalk(jsonObj, location=[]):
         raise Exception("Not a JSON compatible object: {}".format(type(jsonObj)))
 
 
+import psutil
+
+
+def get_cpu_utilization():
+    cpu_utilization = psutil.cpu_percent(
+        interval=1
+    )  # Get CPU utilization for the last second
+    return cpu_utilization
+
+
+def get_ram_utilization():
+    ram_utilization = psutil.virtual_memory().percent
+    return ram_utilization
+
+
+def get_resource_utilization():
+    return {"cpu": get_cpu_utilization(), "ram": get_ram_utilization()}
+
+
 def measure_system_responsiveness():
     metrics = {}
 
     # Measure command execution speed
     start_time_cmd = time.time()
-    subprocess.run(["echo", "hello"], capture_output=True, encoding="utf-8", check=True)
+    # subprocess.run(["echo", "hello"], capture_output=True,shell=True, encoding="utf-8", check=True)
+    # subprocess.run(["bash", "-c",'echo hello'], capture_output=True, encoding="utf-8", check=True)
+    subprocess.run(
+        ["echo", "hello"], capture_output=True, shell=True, encoding="utf-8", check=True
+    )
+    # subprocess.run(["bash", "-c",'echo hello'], capture_output=True,shell=True, encoding="utf-8", check=True)
     end_time_cmd = time.time()
     exec_time_cmd = end_time_cmd - start_time_cmd
     exec_per_second_cmd = 1 / exec_time_cmd
@@ -73,7 +108,7 @@ def measure_system_responsiveness():
     loop_count = 10000
     i = 0
     for _ in range(loop_count):  # Perform a simple loop a large number of times
-        i+=1
+        i += 1
     end_time_loop = time.time()
     loop_time = end_time_loop - start_time_loop
     metrics["loop_speed"] = 1 / loop_time  # Loop iterations per second
@@ -96,9 +131,43 @@ def get_sensor_data():
     return data
 
 
-past_data = {}
+PRIORITY_LEVEL = {1: "normal", 2: "high", 3: "urgent"}
+
+url = "http://ntfy.sh/crysis_or_panic"
+import requests
 
 
+def send_espeak_notification(title, message):
+    subprocess.run(["espeak", " ".join([title, message])])
+
+
+def send_linux_notification(title, message):
+    subprocess.run(["notify-send", title, message])
+
+
+def send_notification(k: str, v: int, topic: str):
+    msg = f"Read abnormal: {k}"
+    title = f"Abnormal {topic}"
+    priority = PRIORITY_LEVEL[v]
+    send_linux_notification(title, f"[{priority.title()}] {msg}")
+    send_espeak_notification(title, f"[{priority.title()}] {msg}")
+    try:
+        requests.post(
+            url=url,
+            data=msg,
+            headers={"Title": title, "Priority": priority},
+        )
+    except:
+        pass
+
+
+from collections import defaultdict
+
+temp_threshold_counter = defaultdict(int)
+metric_threshold_counter = defaultdict(int)
+
+resource_threshold_counter = defaultdict(int)
+main_loop_counter = 0
 while True:
     data = get_sensor_data()
     metrics = measure_system_responsiveness()
@@ -113,5 +182,37 @@ while True:
         last_key = klist[-1]
         if last_key.startswith("temp") and last_key.endswith("_input"):
             rich.print(klist, v)
+            k_key = " -> ".join(klist)
+            if v > TEMP_THRESHOLD:
+                rich.print(v, f"above temperature threshold ({TEMP_THRESHOLD})", k_key)
+                temp_threshold_counter[k_key] += 1
+
     rich.print("responsiveness:", metrics)
+    resource_util = get_resource_utilization()
+    rich.print("resource_utilization:", resource_util)
+    for k, v in resource_util.items():
+        if v > RESOURCE_UTIL_THRESHOLD:
+            resource_threshold_counter[k] += 1
+    for k, v in metrics.items():
+        if v < RESP_THRESHOLDS[k]:
+            rich.print(v, f"below responsiveness threshold ({RESP_THRESHOLDS[k]})", k)
+            metric_threshold_counter[k] += 1
+
     time.sleep(SCAN_INTERVAL)
+    main_loop_counter += 1
+
+    if main_loop_counter == ALERT_CONFIRMATION_THRESHOLD:
+        # 1 for warning, 2 for critical, 3 for urgent
+        for k, v in temp_threshold_counter.items():
+            send_notification(k, v, "temperature")
+
+        for k, v in metric_threshold_counter.items():
+            send_notification(k, v, "responsiveness")
+
+        for k, v in resource_threshold_counter.items():
+            send_notification(k, v, "resource")
+
+        main_loop_counter = 0
+        cpu_threshold_counter = 0
+        temp_threshold_counter = defaultdict(int)
+        metric_threshold_counter = defaultdict(int)
