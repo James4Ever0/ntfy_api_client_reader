@@ -1,0 +1,14 @@
+[Unit]
+Description=Linux Temperature Alert Service
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/linux_temp_alert
+Restart=always
+User=root
+Environment=DISPLAY=:0  # Set the DISPLAY environment variable for GUI access
+
+[Install]
+WantedBy=multi-user.target
