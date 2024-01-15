@@ -8,6 +8,8 @@ import tempfile
 # seems firefox is to be blamed. since this is not gpu intensive, it must be cpu then.
 # let's also get ram util.
 
+# notify-send is not working in systemd
+
 ENCODING = "utf-8"
 SCAN_INTERVAL = 10
 ALERT_CONFIRMATION_THRESHOLD = 3

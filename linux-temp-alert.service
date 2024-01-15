@@ -1,14 +1,17 @@
 [Unit]
 Description=Linux Temperature Alert Service
 Wants=network-online.target
-After=network-online.target
+After=network-online.target,systemd-user-sessions.service,systemd-journald.service
 
 [Service]
 Type=simple
 ExecStart=/usr/bin/linux_temp_alert
 Restart=always
+RestartSec=1
+KillMode=process
+IgnoreSIGPIPE=no
 User=root
-Environment=DISPLAY=:0  # Set the DISPLAY environment variable for GUI access
+Environment="DISPLAY=:0" "XAUTHORITY=/root/.Xauthority"  # Set the DISPLAY environment variable for GUI access
 
 [Install]
 WantedBy=multi-user.target
