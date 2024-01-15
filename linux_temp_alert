@@ -150,7 +150,7 @@ def send_linux_notification(title, message):
 
 
 def send_notification(k: str, v: int, topic: str, read: str):
-    msg = f"Read abnormal ({read}): {k}"
+    msg = f"Read abnormal ({read}) x{v}: {k}"
     title = f"Abnormal {topic}"
     priority = PRIORITY_LEVEL[v]
     send_linux_notification(title, f"[{priority.title()}] {msg}")
