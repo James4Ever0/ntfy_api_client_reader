@@ -11,7 +11,8 @@ import tempfile
 ENCODING = "utf-8"
 SCAN_INTERVAL = 10
 ALERT_CONFIRMATION_THRESHOLD = 3
-TEMP_THRESHOLD = 75  # celsius
+TEMP_THRESHOLD = 90  # i7 8750H @ 4.10GHz can get that hot
+# TEMP_THRESHOLD = 75  # celsius
 RESP_THRESHOLDS = {
     "command_execution_speed": 100,
     "file_io_speed": 1000,
@@ -146,8 +147,8 @@ def send_linux_notification(title, message):
     subprocess.run(["notify-send", title, message])
 
 
-def send_notification(k: str, v: int, topic: str):
-    msg = f"Read abnormal: {k}"
+def send_notification(k: str, v: int, topic: str, read: str):
+    msg = f"Read abnormal ({read}): {k}"
     title = f"Abnormal {topic}"
     priority = PRIORITY_LEVEL[v]
     send_linux_notification(title, f"[{priority.title()}] {msg}")
@@ -166,8 +167,12 @@ from collections import defaultdict
 
 temp_threshold_counter = defaultdict(int)
 metric_threshold_counter = defaultdict(int)
-
 resource_threshold_counter = defaultdict(int)
+
+temp_vals = defaultdict(float)
+metric_vals = defaultdict(float)
+resource_vals = defaultdict(float)
+
 main_loop_counter = 0
 while True:
     data = get_sensor_data()
@@ -187,6 +192,7 @@ while True:
             if v > TEMP_THRESHOLD:
                 rich.print(v, f"above temperature threshold ({TEMP_THRESHOLD})", k_key)
                 temp_threshold_counter[k_key] += 1
+                temp_vals[k_key] += v
 
     rich.print("responsiveness:", metrics)
     resource_util = get_resource_utilization()
@@ -194,10 +200,12 @@ while True:
     for k, v in resource_util.items():
         if v > RESOURCE_UTIL_THRESHOLD:
             resource_threshold_counter[k] += 1
+            resource_vals[k] += v
     for k, v in metrics.items():
         if v < RESP_THRESHOLDS[k]:
             rich.print(v, f"below responsiveness threshold ({RESP_THRESHOLDS[k]})", k)
             metric_threshold_counter[k] += 1
+            metric_vals[k] += v
 
     time.sleep(SCAN_INTERVAL)
     main_loop_counter += 1
@@ -205,15 +213,28 @@ while True:
     if main_loop_counter == ALERT_CONFIRMATION_THRESHOLD:
         # 1 for warning, 2 for critical, 3 for urgent
         for k, v in temp_threshold_counter.items():
-            send_notification(k, v, "temperature")
+            send_notification(
+                k, v, "temperature", f"{temp_vals[k]/v:.2f} > {TEMP_THRESHOLD}"
+            )
 
         for k, v in metric_threshold_counter.items():
-            send_notification(k, v, "responsiveness")
+            send_notification(
+                k, v, "responsiveness", f"{metric_vals[k]/v:.2f} < {RESP_THRESHOLDS[k]}"
+            )
 
         for k, v in resource_threshold_counter.items():
-            send_notification(k, v, "resource")
+            send_notification(
+                k,
+                v,
+                "resource",
+                f"{resource_vals[k]/v:.2f} > {RESOURCE_UTIL_THRESHOLD}",
+            )
 
         main_loop_counter = 0
         cpu_threshold_counter = 0
         temp_threshold_counter = defaultdict(int)
         metric_threshold_counter = defaultdict(int)
+
+        temp_vals = defaultdict(float)
+        metric_vals = defaultdict(float)
+        resource_vals = defaultdict(float)

@@ -1,3 +1,4 @@
+sudo systemctl stop linux-temp-alert
 sudo systemctl disable linux-temp-alert
 cp linux_temp_alert /usr/bin
 cp linux-temp-alert.service /etc/systemd/system/
